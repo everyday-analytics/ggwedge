@@ -1,24 +1,25 @@
 {
     "id": "DCA32A7E",
-    "path": "~/Google Drive/r_packages/pkg-worksheet/README.Rmd",
+    "path": "~/Google Drive/r_packages/ggwedge/README.Rmd",
     "project_path": "README.Rmd",
     "type": "r_markdown",
-    "hash": "640720545",
+    "hash": "749325446",
     "contents": "",
     "dirty": false,
     "created": 1700688640656.0,
     "source_on_save": false,
     "relative_order": 1,
     "properties": {
-        "cursorPosition": "65,3",
-        "scrollLine": "62"
+        "cursorPosition": "75,0",
+        "scrollLine": "60",
+        "docOutlineVisible": "1"
     },
     "folds": "",
-    "lastKnownWriteTime": 1700689832,
+    "lastKnownWriteTime": 1700690667,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1700689832088,
+    "last_content_update": 1700690667551,
     "read_only": false,
     "read_only_alternatives": []
 }
