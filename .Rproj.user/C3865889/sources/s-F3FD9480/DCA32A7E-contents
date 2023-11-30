@@ -60,19 +60,171 @@ ggplot(diamonds) +
 
 # Part I. Work out functionality  ✅ 
 
-
-
-```{r myfunction}
-geom_wedge <- function(){
+```{r compute_panel_pie, error=TRUE}
+compute_panel_pie <- function(data, scales, digits = 1, r_nudge = 0, r_prop = 1){
   
+  if(!("weight" %in% names(data))){data$weight <- 1}
+  # order matters... Need to add text aesthetics
+  if("fill" %in% names(data)){data <- group_by(data, fill, .add = T)}
+  if("alpha" %in% names(data)){data <- group_by(data, alpha, .add = T)}
+  if("colour" %in% names(data)){data <- group_by(data, colour, .add = T)}
+  if("group" %in% names(data)){data <- group_by(data, group, .add = T)}
+  if("linetype" %in% names(data)){data <- group_by(data, linetype, .add = T)}
+  if("linewidth" %in% names(data)){data <- group_by(data, linewidth, .add = T)}
+  
+out <- data %>% 
+  summarize(wt = sum(weight)) %>% 
+  ungroup() %>% 
+  mutate(group = 1:n()) %>% 
+  mutate(cum_n = cumsum(.data$wt)) %>% 
+  mutate(xmax = .data$cum_n/sum(.data$wt)) %>% 
+  mutate(xmin = lag(.data$xmax)) %>% 
+  mutate(xmin = replace_na(.data$xmin, 0)) %>% 
+  mutate(r = sqrt(sum(.data$wt)/pi)) %>% 
+  mutate(r0 = 0) %>% 
+  mutate(ymin = 0, ymax = .data$r) 
+
+  if("r" %in% names(data)){out$ymax <- data$r[1]}
+  if("r0" %in% names(data)){out$ymin <- data$r0[1]}
+  # idea that didn't work and I don't know why
+  # since rect doesn't use x and y (but xmin xmax etc) this is not as interesting
+  # but it seems like a nice unified strategy for supercharging compute functions to do
+  # some nice labeling comput for us...  But, not working! Why?
+  # if(is_label){out$y <- out$y_text}   
+
+# routine for labels; we do this after r's overridden because y is computed based on this...
+out <- out %>% 
+  mutate(prop = .data$wt/sum(.data$wt)) %>% 
+  mutate(percent = paste0(round(100*.data$prop, digits), "%")) %>% 
+  mutate(r_prop = r_prop) %>% 
+  mutate(r_nudge = r_nudge) %>% 
+  mutate(x = (.data$xmin + .data$xmax)/2) %>% 
+  mutate(y = .data$r*.data$r_prop + .data$r_nudge)
+
+  out
   
 }
+
+
+# compute_panel_pietext <- function(...){
+#   
+#   compute_panel_pie(..., is_label = T) # overwriting y
+#   
+#   
+# }
+
+
+```
+
+```{r}
+library(tidyverse)
+ggplot2::diamonds |> 
+  mutate(fill = cut) |> 
+  mutate(r = 1) |> 
+  mutate(r0 = .5) |> 
+  compute_panel_pie(r_nudge = 2)
+```
+
+
+```{r geom_pie}
+StatPie <- ggplot2::ggproto(`_class` = "StatPie",
+                  `_inherit` = ggplot2::Stat,
+                  compute_panel = compute_panel_pie,
+                  default_aes = ggplot2::aes(
+                    group = ggplot2::after_stat(group),
+                    label = ggplot2::after_stat(percent),
+                    y = ggplot2::after_stat(r*r_prop + r_nudge))
+                  )
+
+geom_pie <- function(
+  mapping = NULL,
+  data = NULL,
+  position = "identity",
+  na.rm = FALSE,
+  show.legend = NA,
+  inherit.aes = TRUE, ...) {
+  ggplot2::layer(
+    stat = StatPie,  # proto object from step 2
+    geom = ggplot2::GeomRect,  # inherit other behavior
+    data = data,
+    mapping = mapping,
+    position = position,
+    show.legend = show.legend,
+    inherit.aes = inherit.aes,
+    params = list(na.rm = na.rm, ...)
+  )
+}
+
+geom_pie_label <- function(
+  mapping = NULL,
+  data = NULL,
+  position = "identity",
+  na.rm = FALSE,
+  show.legend = NA,
+  inherit.aes = TRUE, ...) {
+  ggplot2::layer(
+    stat = StatPie,  # proto object from step 2
+    geom = ggplot2::GeomText,  # inherit other behavior
+    data = data,
+    mapping = mapping,
+    position = position,
+    show.legend = show.legend,
+    inherit.aes = inherit.aes,
+    params = list(na.rm = na.rm, ...)
+  )
+}
+
 ```
 
 
 # Try it out
 
 ```{r}
+ggplot2::diamonds %>% 
+  ggplot() + 
+  aes(fill = color) + 
+  geom_pie() + 
+  coord_polar()
+
+layer_data()
+
+ggplot2::diamonds %>% 
+  ggplot() + 
+  aes(fill = color) + 
+  geom_pie() + 
+  geom_pie_label(r_nudge = -50) +
+  coord_polar() +
+  NULL
+
+layer_data()
+
+last_plot() + 
+  aes(alpha = cut)
+
+last_plot() + 
+  facet_wrap(~color)
+
+last_plot() +
+  facet_wrap(~color) + 
+  coord_cartesian()
+
+last_plot() + 
+  coord_polar()
+
+last_plot() + 
+  aes(r = 1, r0 = .5)
+
+ggplot2::diamonds %>% 
+  count(cut) %>% 
+  ggplot() + 
+  aes(fill = cut, weight = n) + 
+  geom_pie() +
+  coord_polar()
+
+last_plot() + 
+  geom_pie_label(aes(label = after_stat(wt), angle = after_stat(c(85,0,0,0,0))),
+                 r_prop = .7, 
+                 color = "oldlace")
 ```
 
 # Part II. Packaging and documentation  🚧 ✅ 
@@ -89,8 +241,9 @@ knitr::knit_code$get() |> names()
 
 Use new {readme2pkg} function to do this from readme...
 
-```{r, eval = F}
-readme2pkg::chunk_to_r("myfunction")
+```{r, eval = T}
+readme2pkg::chunk_to_r("geom_pie")
+readme2pkg::chunk_to_r("compute_panel_pie")
 ```
 
 
@@ -159,14 +312,14 @@ That would look like this...
 library(testthat)
 
 test_that("calc frequency works", {
-  expect_equal(calc_frequency("A", 0), 440)
-  expect_equal(calc_frequency("A", -1), 220)
+  expect_equal(440, 440)
+  expect_equal(220*1, 220)
   
 })
 ```
 
 
-```{r}
+```{r, eval = F}
 readme2pkg::chunk_to_tests_testthat("test_calc_frequency_works")
 ```
 

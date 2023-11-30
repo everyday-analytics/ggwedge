@@ -3,23 +3,24 @@
     "path": "~/Google Drive/r_packages/ggwedge/README.Rmd",
     "project_path": "README.Rmd",
     "type": "r_markdown",
-    "hash": "749325446",
+    "hash": "0",
     "contents": "",
     "dirty": false,
     "created": 1700688640656.0,
     "source_on_save": false,
     "relative_order": 1,
     "properties": {
-        "cursorPosition": "75,0",
-        "scrollLine": "60",
-        "docOutlineVisible": "1"
+        "cursorPosition": "136,19",
+        "scrollLine": "126",
+        "docOutlineVisible": "1",
+        "docOutlineSize": "128"
     },
     "folds": "",
-    "lastKnownWriteTime": 1700690667,
+    "lastKnownWriteTime": 1701210128,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1700690667551,
+    "last_content_update": 1701210128909,
     "read_only": false,
     "read_only_alternatives": []
 }
