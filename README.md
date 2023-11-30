@@ -100,18 +100,21 @@ compute_panel_pie <- function(data, scales, digits = 1, r_nudge = 0, r_prop = 1)
   if("linewidth" %in% names(data)){data <- group_by(data, linewidth, .add = T)}
   
 out <- data %>% 
-  summarize(wt = sum(weight)) %>% 
+  summarize(weight = sum(weight)) %>% 
   ungroup() %>% 
   mutate(group = 1:n()) %>% 
-  mutate(cum_n = cumsum(.data$wt)) %>% 
-  mutate(xmax = .data$cum_n/sum(.data$wt)) %>% 
+  mutate(cum_n = cumsum(.data$weight)) %>% 
+  mutate(xmax = .data$cum_n/sum(.data$weight)) %>% 
   mutate(xmin = lag(.data$xmax)) %>% 
   mutate(xmin = replace_na(.data$xmin, 0)) %>% 
-  mutate(r = sqrt(sum(.data$wt)/pi)) %>% 
+  mutate(r = sqrt(sum(.data$weight)/pi)) %>% 
   mutate(r0 = 0) %>% 
-  mutate(ymin = 0, ymax = .data$r) 
+  mutate(ymin = 0, 
+         ymax = .data$r) 
+
 
   if("r" %in% names(data)){out$ymax <- data$r[1]}
+  if("r" %in% names(data)){out$r <- data$r[1]}
   if("r0" %in% names(data)){out$ymin <- data$r0[1]}
   # idea that didn't work and I don't know why
   # since rect doesn't use x and y (but xmin xmax etc) this is not as interesting
@@ -121,7 +124,7 @@ out <- data %>%
 
 # routine for labels; we do this after r's overridden because y is computed based on this...
 out <- out %>% 
-  mutate(prop = .data$wt/sum(.data$wt)) %>% 
+  mutate(prop = .data$weight/sum(.data$weight)) %>% 
   mutate(percent = paste0(round(100*.data$prop, digits), "%")) %>% 
   mutate(r_prop = r_prop) %>% 
   mutate(r_nudge = r_nudge) %>% 
@@ -159,13 +162,13 @@ ggplot2::diamonds |>
   mutate(r0 = .5) |> 
   compute_panel_pie(r_nudge = 2)
 #> # A tibble: 5 × 16
-#>   fill       wt group cum_n   xmax   xmin     r    r0  ymin  ymax   prop percent
+#>   fill   weight group cum_n   xmax   xmin     r    r0  ymin  ymax   prop percent
 #>   <ord>   <dbl> <int> <dbl>  <dbl>  <dbl> <dbl> <dbl> <dbl> <dbl>  <dbl> <chr>  
-#> 1 Fair     1610     1  1610 0.0298 0       131.     0   0.5     1 0.0298 3%     
-#> 2 Good     4906     2  6516 0.121  0.0298  131.     0   0.5     1 0.0910 9.1%   
-#> 3 Very G… 12082     3 18598 0.345  0.121   131.     0   0.5     1 0.224  22.4%  
-#> 4 Premium 13791     4 32389 0.600  0.345   131.     0   0.5     1 0.256  25.6%  
-#> 5 Ideal   21551     5 53940 1      0.600   131.     0   0.5     1 0.400  40%    
+#> 1 Fair     1610     1  1610 0.0298 0          1     0   0.5     1 0.0298 3%     
+#> 2 Good     4906     2  6516 0.121  0.0298     1     0   0.5     1 0.0910 9.1%   
+#> 3 Very …  12082     3 18598 0.345  0.121      1     0   0.5     1 0.224  22.4%  
+#> 4 Premi…  13791     4 32389 0.600  0.345      1     0   0.5     1 0.256  25.6%  
+#> 5 Ideal   21551     5 53940 1      0.600      1     0   0.5     1 0.400  40%    
 #> # ℹ 4 more variables: r_prop <dbl>, r_nudge <dbl>, x <dbl>, y <dbl>
 ```
 
@@ -234,39 +237,11 @@ ggplot2::diamonds %>%
 
 ``` r
 
-layer_data()
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#>        fill       y group label PANEL    wt cum_n      xmax      xmin       r
-#> 1 #440154FF 131.033     1 12.6%     1  6775  6775 0.1256025 0.0000000 131.033
-#> 2 #443A83FF 131.033     2 18.2%     1  9797 16572 0.3072303 0.1256025 131.033
-#> 3 #31688EFF 131.033     3 17.7%     1  9542 26114 0.4841305 0.3072303 131.033
-#> 4 #21908CFF 131.033     4 20.9%     1 11292 37406 0.6934742 0.4841305 131.033
-#> 5 #35B779FF 131.033     5 15.4%     1  8304 45710 0.8474231 0.6934742 131.033
-#> 6 #8FD744FF 131.033     6 10.1%     1  5422 51132 0.9479422 0.8474231 131.033
-#> 7 #FDE725FF 131.033     7  5.2%     1  2808 53940 1.0000000 0.9479422 131.033
-#>   r0 ymin    ymax       prop percent r_prop r_nudge          x colour linewidth
-#> 1  0    0 131.033 0.12560252   12.6%      1       0 0.06280126     NA       0.5
-#> 2  0    0 131.033 0.18162773   18.2%      1       0 0.21641639     NA       0.5
-#> 3  0    0 131.033 0.17690026   17.7%      1       0 0.39568039     NA       0.5
-#> 4  0    0 131.033 0.20934372   20.9%      1       0 0.58880237     NA       0.5
-#> 5  0    0 131.033 0.15394883   15.4%      1       0 0.77044865     NA       0.5
-#> 6  0    0 131.033 0.10051910   10.1%      1       0 0.89768261     NA       0.5
-#> 7  0    0 131.033 0.05205784    5.2%      1       0 0.97397108     NA       0.5
-#>   linetype alpha
-#> 1        1    NA
-#> 2        1    NA
-#> 3        1    NA
-#> 4        1    NA
-#> 5        1    NA
-#> 6        1    NA
-#> 7        1    NA
-
 ggplot2::diamonds %>% 
   ggplot() + 
   aes(fill = color) + 
   geom_pie() + 
-  geom_pie_label(r_nudge = -50) +
+  geom_pie_label(r_prop = .7) +
   coord_polar() +
   NULL
 #> `summarise()` has grouped output by 'fill'. You can override using the
@@ -279,41 +254,27 @@ ggplot2::diamonds %>%
 
 ``` r
 
-layer_data()
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#>        fill       y group label PANEL    wt cum_n      xmax      xmin       r
-#> 1 #440154FF 131.033     1 12.6%     1  6775  6775 0.1256025 0.0000000 131.033
-#> 2 #443A83FF 131.033     2 18.2%     1  9797 16572 0.3072303 0.1256025 131.033
-#> 3 #31688EFF 131.033     3 17.7%     1  9542 26114 0.4841305 0.3072303 131.033
-#> 4 #21908CFF 131.033     4 20.9%     1 11292 37406 0.6934742 0.4841305 131.033
-#> 5 #35B779FF 131.033     5 15.4%     1  8304 45710 0.8474231 0.6934742 131.033
-#> 6 #8FD744FF 131.033     6 10.1%     1  5422 51132 0.9479422 0.8474231 131.033
-#> 7 #FDE725FF 131.033     7  5.2%     1  2808 53940 1.0000000 0.9479422 131.033
-#>   r0 ymin    ymax       prop percent r_prop r_nudge          x colour linewidth
-#> 1  0    0 131.033 0.12560252   12.6%      1       0 0.06280126     NA       0.5
-#> 2  0    0 131.033 0.18162773   18.2%      1       0 0.21641639     NA       0.5
-#> 3  0    0 131.033 0.17690026   17.7%      1       0 0.39568039     NA       0.5
-#> 4  0    0 131.033 0.20934372   20.9%      1       0 0.58880237     NA       0.5
-#> 5  0    0 131.033 0.15394883   15.4%      1       0 0.77044865     NA       0.5
-#> 6  0    0 131.033 0.10051910   10.1%      1       0 0.89768261     NA       0.5
-#> 7  0    0 131.033 0.05205784    5.2%      1       0 0.97397108     NA       0.5
-#>   linetype alpha
-#> 1        1    NA
-#> 2        1    NA
-#> 3        1    NA
-#> 4        1    NA
-#> 5        1    NA
-#> 6        1    NA
-#> 7        1    NA
-
 last_plot() + 
-  aes(alpha = cut)
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+  facet_wrap(~cut)
+#> `summarise()` has grouped output by 'fill'. You can override using the
 #> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill'. You can override using the
 #> `.groups` argument.
 ```
 
@@ -322,15 +283,7 @@ last_plot() +
 ``` r
 
 last_plot() + 
-  facet_wrap(~color)
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
+  aes(alpha = color)
 #> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
 #> `.groups` argument.
 #> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
@@ -357,88 +310,32 @@ last_plot() +
 
 ``` r
 
-last_plot() +
-  facet_wrap(~color) + 
-  coord_cartesian()
-#> Coordinate system already present. Adding new coordinate system, which will
-#> replace the existing one.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
+last_plot() + 
+  aes(alpha = NULL) + 
+  aes(r = 1)
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill'. You can override using the
+#> `.groups` argument.
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-4-5.png)<!-- -->
-
-``` r
-
-last_plot() + 
-  coord_polar()
-#> Coordinate system already present. Adding new coordinate system, which will
-#> replace the existing one.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the `.groups` argument.
-```
-
-![](README_files/figure-gfm/unnamed-chunk-4-6.png)<!-- -->
-
-``` r
-
-last_plot() + 
-  aes(r = 1, r0 = .5)
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-```
-
-![](README_files/figure-gfm/unnamed-chunk-4-7.png)<!-- -->
 
 ``` r
 
@@ -452,21 +349,22 @@ ggplot2::diamonds %>%
 #> `.groups` argument.
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-4-8.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-4-6.png)<!-- -->
 
 ``` r
 
 last_plot() + 
-  geom_pie_label(aes(label = after_stat(wt), angle = after_stat(c(85,0,0,0,0))),
-                 r_prop = .7, 
-                 color = "oldlace")
+  geom_pie_label(aes(label = after_stat(weight), 
+                     angle = after_stat(c(85,0,0,0,0))),
+                r_prop = .7, 
+                color = "oldlace")
 #> `summarise()` has grouped output by 'fill'. You can override using the
 #> `.groups` argument.
 #> `summarise()` has grouped output by 'fill'. You can override using the
 #> `.groups` argument.
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-4-9.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-4-7.png)<!-- -->
 
 # Part II. Packaging and documentation 🚧 ✅
 
@@ -591,7 +489,7 @@ test_that("calc frequency works", {
   expect_equal(220*1, 220)
   
 })
-#> Test passed 🎊
+#> Test passed 🌈
 ```
 
 ``` r

@@ -73,18 +73,21 @@ compute_panel_pie <- function(data, scales, digits = 1, r_nudge = 0, r_prop = 1)
   if("linewidth" %in% names(data)){data <- group_by(data, linewidth, .add = T)}
   
 out <- data %>% 
-  summarize(wt = sum(weight)) %>% 
+  summarize(weight = sum(weight)) %>% 
   ungroup() %>% 
   mutate(group = 1:n()) %>% 
-  mutate(cum_n = cumsum(.data$wt)) %>% 
-  mutate(xmax = .data$cum_n/sum(.data$wt)) %>% 
+  mutate(cum_n = cumsum(.data$weight)) %>% 
+  mutate(xmax = .data$cum_n/sum(.data$weight)) %>% 
   mutate(xmin = lag(.data$xmax)) %>% 
   mutate(xmin = replace_na(.data$xmin, 0)) %>% 
-  mutate(r = sqrt(sum(.data$wt)/pi)) %>% 
+  mutate(r = sqrt(sum(.data$weight)/pi)) %>% 
   mutate(r0 = 0) %>% 
-  mutate(ymin = 0, ymax = .data$r) 
+  mutate(ymin = 0, 
+         ymax = .data$r) 
+
 
   if("r" %in% names(data)){out$ymax <- data$r[1]}
+  if("r" %in% names(data)){out$r <- data$r[1]}
   if("r0" %in% names(data)){out$ymin <- data$r0[1]}
   # idea that didn't work and I don't know why
   # since rect doesn't use x and y (but xmin xmax etc) this is not as interesting
@@ -94,7 +97,7 @@ out <- data %>%
 
 # routine for labels; we do this after r's overridden because y is computed based on this...
 out <- out %>% 
-  mutate(prop = .data$wt/sum(.data$wt)) %>% 
+  mutate(prop = .data$weight/sum(.data$weight)) %>% 
   mutate(percent = paste0(round(100*.data$prop, digits), "%")) %>% 
   mutate(r_prop = r_prop) %>% 
   mutate(r_nudge = r_nudge) %>% 
@@ -186,33 +189,23 @@ ggplot2::diamonds %>%
   geom_pie() + 
   coord_polar()
 
-layer_data()
-
 ggplot2::diamonds %>% 
   ggplot() + 
   aes(fill = color) + 
   geom_pie() + 
-  geom_pie_label(r_nudge = -50) +
+  geom_pie_label(r_prop = .7) +
   coord_polar() +
   NULL
 
-layer_data()
+last_plot() + 
+  facet_wrap(~cut)
 
 last_plot() + 
-  aes(alpha = cut)
+  aes(alpha = color)
 
 last_plot() + 
-  facet_wrap(~color)
-
-last_plot() +
-  facet_wrap(~color) + 
-  coord_cartesian()
-
-last_plot() + 
-  coord_polar()
-
-last_plot() + 
-  aes(r = 1, r0 = .5)
+  aes(alpha = NULL) + 
+  aes(r = 1)
 
 ggplot2::diamonds %>% 
   count(cut) %>% 
@@ -222,9 +215,10 @@ ggplot2::diamonds %>%
   coord_polar()
 
 last_plot() + 
-  geom_pie_label(aes(label = after_stat(wt), angle = after_stat(c(85,0,0,0,0))),
-                 r_prop = .7, 
-                 color = "oldlace")
+  geom_pie_label(aes(label = after_stat(weight), 
+                     angle = after_stat(c(85,0,0,0,0))),
+                r_prop = .7, 
+                color = "oldlace")
 ```
 
 # Part II. Packaging and documentation  🚧 ✅ 

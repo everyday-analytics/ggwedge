@@ -10,18 +10,21 @@ compute_panel_pie <- function(data, scales, digits = 1, r_nudge = 0, r_prop = 1)
   if("linewidth" %in% names(data)){data <- group_by(data, linewidth, .add = T)}
   
 out <- data %>% 
-  summarize(wt = sum(weight)) %>% 
+  summarize(weight = sum(weight)) %>% 
   ungroup() %>% 
   mutate(group = 1:n()) %>% 
-  mutate(cum_n = cumsum(.data$wt)) %>% 
-  mutate(xmax = .data$cum_n/sum(.data$wt)) %>% 
+  mutate(cum_n = cumsum(.data$weight)) %>% 
+  mutate(xmax = .data$cum_n/sum(.data$weight)) %>% 
   mutate(xmin = lag(.data$xmax)) %>% 
   mutate(xmin = replace_na(.data$xmin, 0)) %>% 
-  mutate(r = sqrt(sum(.data$wt)/pi)) %>% 
+  mutate(r = sqrt(sum(.data$weight)/pi)) %>% 
   mutate(r0 = 0) %>% 
-  mutate(ymin = 0, ymax = .data$r) 
+  mutate(ymin = 0, 
+         ymax = .data$r) 
+
 
   if("r" %in% names(data)){out$ymax <- data$r[1]}
+  if("r" %in% names(data)){out$r <- data$r[1]}
   if("r0" %in% names(data)){out$ymin <- data$r0[1]}
   # idea that didn't work and I don't know why
   # since rect doesn't use x and y (but xmin xmax etc) this is not as interesting
@@ -31,7 +34,7 @@ out <- data %>%
 
 # routine for labels; we do this after r's overridden because y is computed based on this...
 out <- out %>% 
-  mutate(prop = .data$wt/sum(.data$wt)) %>% 
+  mutate(prop = .data$weight/sum(.data$weight)) %>% 
   mutate(percent = paste0(round(100*.data$prop, digits), "%")) %>% 
   mutate(r_prop = r_prop) %>% 
   mutate(r_nudge = r_nudge) %>% 
