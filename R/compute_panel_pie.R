@@ -10,17 +10,18 @@ compute_panel_pie <- function(data, scales, digits = 1, r_nudge = 0, r_prop = 1)
   if("linewidth" %in% names(data)){data <- group_by(data, linewidth, .add = T)}
   
 out <- data %>% 
-  summarize(weight = sum(weight)) %>% 
+  summarize(count = sum(weight)) %>% 
   ungroup() %>% 
   mutate(group = 1:n()) %>% 
-  mutate(cum_n = cumsum(.data$weight)) %>% 
-  mutate(xmax = .data$cum_n/sum(.data$weight)) %>% 
+  mutate(cum_n = cumsum(.data$count)) %>% 
+  mutate(xmax = .data$cum_n/sum(.data$count)) %>% 
   mutate(xmin = lag(.data$xmax)) %>% 
   mutate(xmin = replace_na(.data$xmin, 0)) %>% 
-  mutate(r = sqrt(sum(.data$weight)/pi)) %>% 
+  mutate(r = sqrt(sum(.data$count)/pi)) %>% 
   mutate(r0 = 0) %>% 
   mutate(ymin = 0, 
-         ymax = .data$r) 
+         ymax = .data$r) %>% 
+  mutate(y = 0) # always see zero, donuts.
 
 
   if("r" %in% names(data)){out$ymax <- data$r[1]}
@@ -34,12 +35,12 @@ out <- data %>%
 
 # routine for labels; we do this after r's overridden because y is computed based on this...
 out <- out %>% 
-  mutate(prop = .data$weight/sum(.data$weight)) %>% 
+  mutate(prop = .data$count/sum(.data$count)) %>% 
   mutate(percent = paste0(round(100*.data$prop, digits), "%")) %>% 
   mutate(r_prop = r_prop) %>% 
   mutate(r_nudge = r_nudge) %>% 
   mutate(x = (.data$xmin + .data$xmax)/2) %>% 
-  mutate(y = .data$r*.data$r_prop + .data$r_nudge)
+  mutate(y_text = .data$r*.data$r_prop + .data$r_nudge)
 
   out
   

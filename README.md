@@ -100,17 +100,18 @@ compute_panel_pie <- function(data, scales, digits = 1, r_nudge = 0, r_prop = 1)
   if("linewidth" %in% names(data)){data <- group_by(data, linewidth, .add = T)}
   
 out <- data %>% 
-  summarize(weight = sum(weight)) %>% 
+  summarize(count = sum(weight)) %>% 
   ungroup() %>% 
   mutate(group = 1:n()) %>% 
-  mutate(cum_n = cumsum(.data$weight)) %>% 
-  mutate(xmax = .data$cum_n/sum(.data$weight)) %>% 
+  mutate(cum_n = cumsum(.data$count)) %>% 
+  mutate(xmax = .data$cum_n/sum(.data$count)) %>% 
   mutate(xmin = lag(.data$xmax)) %>% 
   mutate(xmin = replace_na(.data$xmin, 0)) %>% 
-  mutate(r = sqrt(sum(.data$weight)/pi)) %>% 
+  mutate(r = sqrt(sum(.data$count)/pi)) %>% 
   mutate(r0 = 0) %>% 
   mutate(ymin = 0, 
-         ymax = .data$r) 
+         ymax = .data$r) %>% 
+  mutate(y = 0) # always see zero, donuts.
 
 
   if("r" %in% names(data)){out$ymax <- data$r[1]}
@@ -124,12 +125,12 @@ out <- data %>%
 
 # routine for labels; we do this after r's overridden because y is computed based on this...
 out <- out %>% 
-  mutate(prop = .data$weight/sum(.data$weight)) %>% 
+  mutate(prop = .data$count/sum(.data$count)) %>% 
   mutate(percent = paste0(round(100*.data$prop, digits), "%")) %>% 
   mutate(r_prop = r_prop) %>% 
   mutate(r_nudge = r_nudge) %>% 
   mutate(x = (.data$xmin + .data$xmax)/2) %>% 
-  mutate(y = .data$r*.data$r_prop + .data$r_nudge)
+  mutate(y_text = .data$r*.data$r_prop + .data$r_nudge)
 
   out
   
@@ -161,15 +162,16 @@ ggplot2::diamonds |>
   mutate(r = 1) |> 
   mutate(r0 = .5) |> 
   compute_panel_pie(r_nudge = 2)
-#> # A tibble: 5 × 16
-#>   fill   weight group cum_n   xmax   xmin     r    r0  ymin  ymax   prop percent
-#>   <ord>   <dbl> <int> <dbl>  <dbl>  <dbl> <dbl> <dbl> <dbl> <dbl>  <dbl> <chr>  
-#> 1 Fair     1610     1  1610 0.0298 0          1     0   0.5     1 0.0298 3%     
-#> 2 Good     4906     2  6516 0.121  0.0298     1     0   0.5     1 0.0910 9.1%   
-#> 3 Very …  12082     3 18598 0.345  0.121      1     0   0.5     1 0.224  22.4%  
-#> 4 Premi…  13791     4 32389 0.600  0.345      1     0   0.5     1 0.256  25.6%  
-#> 5 Ideal   21551     5 53940 1      0.600      1     0   0.5     1 0.400  40%    
-#> # ℹ 4 more variables: r_prop <dbl>, r_nudge <dbl>, x <dbl>, y <dbl>
+#> # A tibble: 5 × 17
+#>   fill      count group cum_n   xmax   xmin     r    r0  ymin  ymax     y   prop
+#>   <ord>     <dbl> <int> <dbl>  <dbl>  <dbl> <dbl> <dbl> <dbl> <dbl> <dbl>  <dbl>
+#> 1 Fair       1610     1  1610 0.0298 0          1     0   0.5     1     0 0.0298
+#> 2 Good       4906     2  6516 0.121  0.0298     1     0   0.5     1     0 0.0910
+#> 3 Very Good 12082     3 18598 0.345  0.121      1     0   0.5     1     0 0.224 
+#> 4 Premium   13791     4 32389 0.600  0.345      1     0   0.5     1     0 0.256 
+#> 5 Ideal     21551     5 53940 1      0.600      1     0   0.5     1     0 0.400 
+#> # ℹ 5 more variables: percent <chr>, r_prop <dbl>, r_nudge <dbl>, x <dbl>,
+#> #   y_text <dbl>
 ```
 
 ``` r
@@ -177,10 +179,20 @@ StatPie <- ggplot2::ggproto(`_class` = "StatPie",
                   `_inherit` = ggplot2::Stat,
                   compute_panel = compute_panel_pie,
                   default_aes = ggplot2::aes(
+                    group = ggplot2::after_stat(group))#,
+                    # label = ggplot2::after_stat(percent),
+                    # y = ggplot2::after_stat(r*r_prop + r_nudge))
+                  )
+
+StatPietext <- ggplot2::ggproto(`_class` = "StatPietext",
+                  `_inherit` = ggplot2::Stat,
+                  compute_panel = compute_panel_pie,
+                  default_aes = ggplot2::aes(
                     group = ggplot2::after_stat(group),
                     label = ggplot2::after_stat(percent),
                     y = ggplot2::after_stat(r*r_prop + r_nudge))
                   )
+
 
 geom_pie <- function(
   mapping = NULL,
@@ -209,7 +221,7 @@ geom_pie_label <- function(
   show.legend = NA,
   inherit.aes = TRUE, ...) {
   ggplot2::layer(
-    stat = StatPie,  # proto object from step 2
+    stat = StatPietext,  # proto object from step 2
     geom = ggplot2::GeomText,  # inherit other behavior
     data = data,
     mapping = mapping,
@@ -220,6 +232,64 @@ geom_pie_label <- function(
   )
 }
 ```
+
+``` r
+Titanic %>% 
+  data.frame() %>% 
+  uncount(weights = Freq) ->
+titanic
+
+titanic %>% 
+  ggplot() + 
+  geom_pie() + 
+  coord_polar() + # pie1
+  aes(fill = Survived) + # pie2
+  scale_fill_manual(values = c("darkgrey", "cadetblue")) + # custom colors
+  facet_wrap(facets = vars(Sex)) + #pie3 
+  theme_void() + # little clean up
+  aes(r = 1) + #pie4
+  aes(r0 = .6) + #pie5
+  geom_pie_label(r_nudge = .2) + #pie6
+  facet_grid(rows = vars(Sex), cols = vars(Class)) + #pie7
+  aes(label = after_stat(count)) + #pie8 + 
+  aes(alpha = Age) + scale_alpha_discrete(range = c(.6,1)) + #pie9
+  aes(label = after_stat(percent)) # bonuspie, back to percentages
+#> Warning: Using alpha for a discrete variable is not advised.
+#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+#> `.groups` argument.
+#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
+#> `.groups` argument.
+```
+
+![](README_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
 
 # Try it out
 
@@ -233,7 +303,7 @@ ggplot2::diamonds %>%
 #> `.groups` argument.
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
 
 ``` r
 
@@ -250,7 +320,7 @@ ggplot2::diamonds %>%
 #> `.groups` argument.
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-4-2.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-5-2.png)<!-- -->
 
 ``` r
 
@@ -278,7 +348,7 @@ last_plot() +
 #> `.groups` argument.
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-4-3.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-5-3.png)<!-- -->
 
 ``` r
 
@@ -306,7 +376,7 @@ last_plot() +
 #> `.groups` argument.
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-4-4.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-5-4.png)<!-- -->
 
 ``` r
 
@@ -335,7 +405,7 @@ last_plot() +
 #> `.groups` argument.
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-4-5.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-5-5.png)<!-- -->
 
 ``` r
 
@@ -349,12 +419,12 @@ ggplot2::diamonds %>%
 #> `.groups` argument.
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-4-6.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-5-6.png)<!-- -->
 
 ``` r
 
 last_plot() + 
-  geom_pie_label(aes(label = after_stat(weight), 
+  geom_pie_label(aes(label = after_stat(count), 
                      angle = after_stat(c(85,0,0,0,0))),
                 r_prop = .7, 
                 color = "oldlace")
@@ -364,7 +434,7 @@ last_plot() +
 #> `.groups` argument.
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-4-7.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-5-7.png)<!-- -->
 
 # Part II. Packaging and documentation 🚧 ✅
 
@@ -382,9 +452,10 @@ knitr::knit_code$get() |> names()
 #>  [7] "unnamed-chunk-5"           "unnamed-chunk-6"          
 #>  [9] "unnamed-chunk-7"           "unnamed-chunk-8"          
 #> [11] "unnamed-chunk-9"           "unnamed-chunk-10"         
-#> [13] "unnamed-chunk-11"          "test_calc_frequency_works"
-#> [15] "unnamed-chunk-12"          "unnamed-chunk-13"         
-#> [17] "unnamed-chunk-14"          "unnamed-chunk-15"
+#> [13] "unnamed-chunk-11"          "unnamed-chunk-12"         
+#> [15] "test_calc_frequency_works" "unnamed-chunk-13"         
+#> [17] "unnamed-chunk-14"          "unnamed-chunk-15"         
+#> [19] "unnamed-chunk-16"
 ```
 
 Use new {readme2pkg} function to do this from readme…
@@ -489,7 +560,7 @@ test_that("calc frequency works", {
   expect_equal(220*1, 220)
   
 })
-#> Test passed 🌈
+#> Test passed 😀
 ```
 
 ``` r
