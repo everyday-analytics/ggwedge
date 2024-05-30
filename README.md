@@ -92,15 +92,20 @@ compute_panel_pie <- function(data, scales, digits = 1, r_nudge = 0, r_prop = 1)
   
   if(!("weight" %in% names(data))){data$weight <- 1}
   # order matters... Need to add text aesthetics
-  if("fill" %in% names(data)){data <- group_by(data, fill, .add = T)}
-  if("alpha" %in% names(data)){data <- group_by(data, alpha, .add = T)}
-  if("colour" %in% names(data)){data <- group_by(data, colour, .add = T)}
-  if("group" %in% names(data)){data <- group_by(data, group, .add = T)}
-  if("linetype" %in% names(data)){data <- group_by(data, linetype, .add = T)}
-  if("linewidth" %in% names(data)){data <- group_by(data, linewidth, .add = T)}
+  # get aes names as they appear in the data
+  data_mapped_aes_names <- names(data)[names(data) %in% 
+                                         c("fill", "alpha", 
+                                             "colour", "group", "linewidth", 
+                                             "linetype")]
+  
+  if(is.null(data$area)){data$area <- 1}
+  
+  data %>% 
+    group_by(across(data_mapped_aes_names)) ->
+  data
   
 out <- data %>% 
-  summarize(count = sum(weight)) %>% 
+  summarize(count = sum(weight), .groups = 'drop') %>% 
   ungroup() %>% 
   mutate(group = 1:n()) %>% 
   mutate(cum_n = cumsum(.data$count)) %>% 
@@ -130,7 +135,8 @@ out <- out %>%
   mutate(r_prop = r_prop) %>% 
   mutate(r_nudge = r_nudge) %>% 
   mutate(x = (.data$xmin + .data$xmax)/2) %>% 
-  mutate(y_text = .data$r*.data$r_prop + .data$r_nudge)
+  mutate(y_text = .data$r*.data$r_prop + .data$r_nudge) %>% 
+  mutate(angle_wedge =  90 -x*360)
 
   out
   
@@ -147,12 +153,12 @@ out <- out %>%
 
 ``` r
 library(tidyverse)
-#> ── Attaching core tidyverse packages ─────────────────── tidyverse 2.0.0.9000 ──
-#> ✔ dplyr     1.1.0     ✔ readr     2.1.4
-#> ✔ forcats   1.0.0     ✔ stringr   1.5.0
-#> ✔ ggplot2   3.4.4     ✔ tibble    3.2.1
-#> ✔ lubridate 1.9.2     ✔ tidyr     1.3.0
-#> ✔ purrr     1.0.1     
+#> ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+#> ✔ dplyr     1.1.4     ✔ readr     2.1.5
+#> ✔ forcats   1.0.0     ✔ stringr   1.5.1
+#> ✔ ggplot2   3.5.1     ✔ tibble    3.2.1
+#> ✔ lubridate 1.9.3     ✔ tidyr     1.3.1
+#> ✔ purrr     1.0.2     
 #> ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
 #> ✖ dplyr::filter() masks stats::filter()
 #> ✖ dplyr::lag()    masks stats::lag()
@@ -162,7 +168,20 @@ ggplot2::diamonds |>
   mutate(r = 1) |> 
   mutate(r0 = .5) |> 
   compute_panel_pie(r_nudge = 2)
-#> # A tibble: 5 × 17
+#> Warning: Unknown or uninitialised column: `area`.
+#> Warning: There was 1 warning in `group_by()`.
+#> ℹ In argument: `across(data_mapped_aes_names)`.
+#> Caused by warning:
+#> ! Using an external vector in selections was deprecated in tidyselect 1.1.0.
+#> ℹ Please use `all_of()` or `any_of()` instead.
+#>   # Was:
+#>   data %>% select(data_mapped_aes_names)
+#> 
+#>   # Now:
+#>   data %>% select(all_of(data_mapped_aes_names))
+#> 
+#> See <https://tidyselect.r-lib.org/reference/faq-external-vector.html>.
+#> # A tibble: 5 × 18
 #>   fill      count group cum_n   xmax   xmin     r    r0  ymin  ymax     y   prop
 #>   <ord>     <dbl> <int> <dbl>  <dbl>  <dbl> <dbl> <dbl> <dbl> <dbl> <dbl>  <dbl>
 #> 1 Fair       1610     1  1610 0.0298 0          1     0   0.5     1     0 0.0298
@@ -170,8 +189,8 @@ ggplot2::diamonds |>
 #> 3 Very Good 12082     3 18598 0.345  0.121      1     0   0.5     1     0 0.224 
 #> 4 Premium   13791     4 32389 0.600  0.345      1     0   0.5     1     0 0.256 
 #> 5 Ideal     21551     5 53940 1      0.600      1     0   0.5     1     0 0.400 
-#> # ℹ 5 more variables: percent <chr>, r_prop <dbl>, r_nudge <dbl>, x <dbl>,
-#> #   y_text <dbl>
+#> # ℹ 6 more variables: percent <chr>, r_prop <dbl>, r_nudge <dbl>, x <dbl>,
+#> #   y_text <dbl>, angle_wedge <dbl>
 ```
 
 ``` r
@@ -252,44 +271,30 @@ titanic %>%
   geom_pie_label(r_nudge = .2) + #pie6
   facet_grid(rows = vars(Sex), cols = vars(Class)) + #pie7
   aes(label = after_stat(count)) + #pie8 + 
-  aes(alpha = Age) + scale_alpha_discrete(range = c(.6,1)) + #pie9
   aes(label = after_stat(percent)) # bonuspie, back to percentages
-#> Warning: Using alpha for a discrete variable is not advised.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
+
+``` r
+
+last_plot() +
+  facet_grid(rows = vars(Age, Sex), cols = vars(Class)) 
+```
+
+![](README_files/figure-gfm/unnamed-chunk-4-2.png)<!-- -->
+
+``` r
+
+
+titanic %>% 
+  tidypivot::pivot_helper(rows = Age, cols = Class)
+#> # A tibble: 2 × 5
+#>   Age   `1st` `2nd` `3rd`  Crew
+#>   <fct> <dbl> <dbl> <dbl> <dbl>
+#> 1 Child     6    24    79     0
+#> 2 Adult   319   261   627   885
+```
 
 # Try it out
 
@@ -298,9 +303,7 @@ ggplot2::diamonds %>%
   ggplot() + 
   aes(fill = color) + 
   geom_pie() + 
-  coord_polar()
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
+  coord_polar() 
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
@@ -312,12 +315,9 @@ ggplot2::diamonds %>%
   aes(fill = color) + 
   geom_pie() + 
   geom_pie_label(r_prop = .7) +
+  aes(angle = after_stat(angle_wedge)) +
   coord_polar() +
   NULL
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-5-2.png)<!-- -->
@@ -325,27 +325,7 @@ ggplot2::diamonds %>%
 ``` r
 
 last_plot() + 
-  facet_wrap(~cut)
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
+  aes(angle = after_stat(angle_wedge - 90))
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-5-3.png)<!-- -->
@@ -353,27 +333,7 @@ last_plot() +
 ``` r
 
 last_plot() + 
-  aes(alpha = color)
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill', 'alpha'. You can override using the
-#> `.groups` argument.
+  facet_wrap(~cut)
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-5-4.png)<!-- -->
@@ -381,31 +341,19 @@ last_plot() +
 ``` r
 
 last_plot() + 
-  aes(alpha = NULL) + 
-  aes(r = 1)
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
+  aes(alpha = color)
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-5-5.png)<!-- -->
+
+``` r
+
+last_plot() + 
+  aes(alpha = NULL) + 
+  aes(r = 1)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-5-6.png)<!-- -->
 
 ``` r
 
@@ -415,11 +363,17 @@ ggplot2::diamonds %>%
   aes(fill = cut, weight = n) + 
   geom_pie() +
   coord_polar()
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-5-6.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-5-7.png)<!-- -->
+
+``` r
+
+last_plot() +
+  aes(alpha = cut)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-5-8.png)<!-- -->
 
 ``` r
 
@@ -428,13 +382,43 @@ last_plot() +
                      angle = after_stat(c(85,0,0,0,0))),
                 r_prop = .7, 
                 color = "oldlace")
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
-#> `summarise()` has grouped output by 'fill'. You can override using the
-#> `.groups` argument.
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-5-7.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-5-9.png)<!-- -->
+
+``` r
+major = c("C", "G", "D", "A", "E", "B",
+            "F#/Gb","C#/Db", "G#/Ab", "Eb", "Bb", "F")
+minor = c("Am", "Em", "Bm", "F#m", "C#m", "G#m", "Ebm",
+            "Bbm", "Fm", "Cm", "Gm", "Dm")
+
+major_roman = c("I", "V", "II", "VI", "III", "VII", rep("",6))
+
+major %>% 
+  tibble(minor) %>% 
+  ggplot() + 
+  aes(fill = major) + 
+  geom_pie(show.legend = F, alpha = .4) + 
+  coord_polar() + 
+  geom_pie_label(aes(label = after_stat(major)),
+                 r_prop = .85) +
+  aes(angle = after_stat(angle_wedge - 90)) + 
+  geom_pie_label(aes(label = after_stat(minor)),
+                 r_prop = .45, size = 3) +
+  theme_void() 
+```
+
+![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
+
+``` r
+
+ggwipe::last_plot_wipe(index = 1) + 
+  geom_pie(show.legend = F, 
+           color = "black", 
+           alpha = 0)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-6-2.png)<!-- -->
 
 # Part II. Packaging and documentation 🚧 ✅
 
@@ -453,16 +437,18 @@ knitr::knit_code$get() |> names()
 #>  [9] "unnamed-chunk-7"           "unnamed-chunk-8"          
 #> [11] "unnamed-chunk-9"           "unnamed-chunk-10"         
 #> [13] "unnamed-chunk-11"          "unnamed-chunk-12"         
-#> [15] "test_calc_frequency_works" "unnamed-chunk-13"         
+#> [15] "unnamed-chunk-13"          "test_calc_frequency_works"
 #> [17] "unnamed-chunk-14"          "unnamed-chunk-15"         
-#> [19] "unnamed-chunk-16"
+#> [19] "unnamed-chunk-16"          "unnamed-chunk-17"
 ```
 
 Use new {readme2pkg} function to do this from readme…
 
 ``` r
-readme2pkg::chunk_to_r("geom_pie")
-readme2pkg::chunk_to_r("compute_panel_pie")
+knitrExtra:::chunk_to_r("geom_pie")
+#> It seems you are currently knitting a Rmd/Qmd file. The parsing of the file will be done in a new R session.
+knitrExtra:::chunk_to_r("compute_panel_pie")
+#> It seems you are currently knitting a Rmd/Qmd file. The parsing of the file will be done in a new R session.
 ```
 
 ### Added roxygen skeleton? ✅
@@ -477,22 +463,24 @@ functions and declared in the DESCRIPTION
 
 ``` r
 usethis::use_package("ggplot2")
-#> ✔ Setting active project to '/Users/evangelinereynolds/Google Drive/r_packages/ggwedge'
-#> • Refer to functions with `ggplot2::fun()`
+#> ✔ Setting active project to '/Users/evangelinereynolds/Google
+#> Drive/r_packages/ggwedge'
 ```
 
 ### Chosen a license? ✅
 
 ``` r
 usethis::use_mit_license()
+#> ✔ Leaving 'LICENSE' unchanged
+#> ✔ Leaving 'LICENSE.md' unchanged
 ```
 
 ### Run `devtools::check()` and addressed errors? ✅
 
 ``` r
 devtools::check(pkg = ".")
-#> ℹ Updating ggwedge documentation
-#> ℹ Loading ggwedge
+#> ℹ Installed roxygen2 version (7.3.1) doesn't match required (7.2.3)
+#> ✖ `check()` will not re-document this package
 ```
 
 ### Build package 🚧
@@ -560,7 +548,7 @@ test_that("calc frequency works", {
   expect_equal(220*1, 220)
   
 })
-#> Test passed 😀
+#> Test passed 🥳
 ```
 
 ``` r
@@ -593,18 +581,18 @@ Here I just want to print the packages and the versions
 all <- sessionInfo() |> print() |> capture.output()
 all[11:17]
 #> [1] ""                                                                         
-#> [2] "attached base packages:"                                                  
-#> [3] "[1] stats     graphics  grDevices utils     datasets  methods   base     "
+#> [2] "time zone: America/Denver"                                                
+#> [3] "tzcode source: internal"                                                  
 #> [4] ""                                                                         
-#> [5] "other attached packages:"                                                 
-#> [6] " [1] testthat_3.1.6       ggwedge_0.0.0.9000   lubridate_1.9.2     "      
-#> [7] " [4] forcats_1.0.0        stringr_1.5.0        dplyr_1.1.0         "
+#> [5] "attached base packages:"                                                  
+#> [6] "[1] stats     graphics  grDevices utils     datasets  methods   base     "
+#> [7] ""
 ```
 
 ## `devtools::check()` report
 
 ``` r
 devtools::check(pkg = ".")
-#> ℹ Updating ggwedge documentation
-#> ℹ Loading ggwedge
+#> ℹ Installed roxygen2 version (7.3.1) doesn't match required (7.2.3)
+#> ✖ `check()` will not re-document this package
 ```

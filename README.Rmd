@@ -65,15 +65,20 @@ compute_panel_pie <- function(data, scales, digits = 1, r_nudge = 0, r_prop = 1)
   
   if(!("weight" %in% names(data))){data$weight <- 1}
   # order matters... Need to add text aesthetics
-  if("fill" %in% names(data)){data <- group_by(data, fill, .add = T)}
-  if("alpha" %in% names(data)){data <- group_by(data, alpha, .add = T)}
-  if("colour" %in% names(data)){data <- group_by(data, colour, .add = T)}
-  if("group" %in% names(data)){data <- group_by(data, group, .add = T)}
-  if("linetype" %in% names(data)){data <- group_by(data, linetype, .add = T)}
-  if("linewidth" %in% names(data)){data <- group_by(data, linewidth, .add = T)}
+  # get aes names as they appear in the data
+  data_mapped_aes_names <- names(data)[names(data) %in% 
+                                         c("fill", "alpha", 
+                                             "colour", "group", "linewidth", 
+                                             "linetype")]
+  
+  if(is.null(data$area)){data$area <- 1}
+  
+  data %>% 
+    group_by(across(data_mapped_aes_names)) ->
+  data
   
 out <- data %>% 
-  summarize(count = sum(weight)) %>% 
+  summarize(count = sum(weight), .groups = 'drop') %>% 
   ungroup() %>% 
   mutate(group = 1:n()) %>% 
   mutate(cum_n = cumsum(.data$count)) %>% 
@@ -103,7 +108,8 @@ out <- out %>%
   mutate(r_prop = r_prop) %>% 
   mutate(r_nudge = r_nudge) %>% 
   mutate(x = (.data$xmin + .data$xmax)/2) %>% 
-  mutate(y_text = .data$r*.data$r_prop + .data$r_nudge)
+  mutate(y_text = .data$r*.data$r_prop + .data$r_nudge) %>% 
+  mutate(angle_wedge =  90 -x*360)
 
   out
   
@@ -208,8 +214,14 @@ titanic %>%
   geom_pie_label(r_nudge = .2) + #pie6
   facet_grid(rows = vars(Sex), cols = vars(Class)) + #pie7
   aes(label = after_stat(count)) + #pie8 + 
-  aes(alpha = Age) + scale_alpha_discrete(range = c(.6,1)) + #pie9
   aes(label = after_stat(percent)) # bonuspie, back to percentages
+
+last_plot() +
+  facet_grid(rows = vars(Age, Sex), cols = vars(Class)) 
+
+
+titanic %>% 
+  tidypivot::pivot_helper(rows = Age, cols = Class)
 ```
 
 
@@ -221,15 +233,19 @@ ggplot2::diamonds %>%
   ggplot() + 
   aes(fill = color) + 
   geom_pie() + 
-  coord_polar()
+  coord_polar() 
 
 ggplot2::diamonds %>% 
   ggplot() + 
   aes(fill = color) + 
   geom_pie() + 
   geom_pie_label(r_prop = .7) +
+  aes(angle = after_stat(angle_wedge)) +
   coord_polar() +
   NULL
+
+last_plot() + 
+  aes(angle = after_stat(angle_wedge - 90))
 
 last_plot() + 
   facet_wrap(~cut)
@@ -248,12 +264,43 @@ ggplot2::diamonds %>%
   geom_pie() +
   coord_polar()
 
+last_plot() +
+  aes(alpha = cut)
+
 last_plot() + 
   geom_pie_label(aes(label = after_stat(count), 
                      angle = after_stat(c(85,0,0,0,0))),
                 r_prop = .7, 
                 color = "oldlace")
 ```
+
+```{r}
+major = c("C", "G", "D", "A", "E", "B",
+            "F#/Gb","C#/Db", "G#/Ab", "Eb", "Bb", "F")
+minor = c("Am", "Em", "Bm", "F#m", "C#m", "G#m", "Ebm",
+            "Bbm", "Fm", "Cm", "Gm", "Dm")
+
+major_roman = c("I", "V", "II", "VI", "III", "VII", rep("",6))
+
+major %>% 
+  tibble(minor) %>% 
+  ggplot() + 
+  aes(fill = major) + 
+  geom_pie(show.legend = F, alpha = .4) + 
+  coord_polar() + 
+  geom_pie_label(aes(label = after_stat(major)),
+                 r_prop = .85) +
+  aes(angle = after_stat(angle_wedge - 90)) + 
+  geom_pie_label(aes(label = after_stat(minor)),
+                 r_prop = .45, size = 3) +
+  theme_void() 
+
+ggwipe::last_plot_wipe(index = 1) + 
+  geom_pie(show.legend = F, 
+           color = "black", 
+           alpha = 0)
+```
+
 
 # Part II. Packaging and documentation  🚧 ✅ 
 
@@ -270,8 +317,8 @@ knitr::knit_code$get() |> names()
 Use new {readme2pkg} function to do this from readme...
 
 ```{r, eval = T}
-readme2pkg::chunk_to_r("geom_pie")
-readme2pkg::chunk_to_r("compute_panel_pie")
+knitrExtra:::chunk_to_r("geom_pie")
+knitrExtra:::chunk_to_r("compute_panel_pie")
 ```
 
 
